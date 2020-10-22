@@ -1,0 +1,51 @@
+pipeline {
+    agent { label 'master' }
+    stages {
+        stage('Build'){
+            options {
+                timeout(time: 1, unit: 'HOURS')
+            }
+            steps {
+                sh 'build/build-cirrus.sh "cirrus-geo :: cirrus-lib" $BRANCH_NAME $BUILD_NUMBER'
+            }
+        }
+
+        stage('Sonar Scan') {
+            options {
+                timeout(time: 1, unit: 'HOURS')
+            }
+            steps {
+                script {
+                    scannerHome = tool 'e84-sonar-scanner-4.3';
+                }
+                withSonarQubeEnv('e84-sonar-server') {
+                    sh "${scannerHome}/bin/sonar-scanner"
+                }
+            }
+        }
+
+        stage('Xray Scan') {
+            options {
+                timeout(time: 1, unit: 'HOURS')
+            }
+            steps {
+                sh 'build/scan-cirrus.sh "cirrus-geo :: cirrus-lib" $BRANCH_NAME $BUILD_NUMBER'
+            }
+        }
+
+        stage('Deploy cirrus-lib') {
+            when {
+                branch 'master'
+            }
+            steps {
+                sh 'build/deploy-cirrus.sh'
+            }
+        }
+
+    }
+    post {
+        cleanup {
+            cleanWs()
+        }
+    }
+}
